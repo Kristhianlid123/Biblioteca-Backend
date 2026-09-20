@@ -35,27 +35,36 @@ public class ApiRegistroServlet extends HttpServlet {
         response.setHeader("Access-Control-Allow-Headers", "Content-Type");
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        
+
         PrintWriter out = response.getWriter();
 
-        // Lectura del cuerpo del JSON enviado por React
-        StringBuilder jsonBuffer = new StringBuilder();
-        String linea;
-        while ((linea = request.getReader().readLine()) != null) {
-            jsonBuffer.append(linea);
-        }
-
-        // Mapeo del texto JSON en el modelo lector con Gson
-        
-        Gson gson = new Gson();
-        Lector lector = gson.fromJson(jsonBuffer.toString(), Lector.class);
-
         try {
+            // Lectura del cuerpo del JSON enviado por React / Postman
+            StringBuilder jsonBuffer = new StringBuilder();
+            String linea;
+            while ((linea = request.getReader().readLine()) != null) {
+                jsonBuffer.append(linea);
+            }
+
+            // Mapeo del texto JSON en el modelo lector con Gson
+            Gson gson = new Gson();
+            Lector lector = gson.fromJson(jsonBuffer.toString(), Lector.class);
+
+            // VALIDACIÓN DE ERROR 400 (Bad Request):
+            // Si el JSON viene vacío o faltan campos obligatorios como documento o nombre
+            if (lector == null || lector.getDocumento() == null || lector.getDocumento().trim().isEmpty()
+                    || lector.getNombre() == null || lector.getNombre().trim().isEmpty()) {
+
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST); // Código 400
+                out.print("{\"estado\":\"error\",\"mensaje\":\"Petición incorrecta: Faltan campos obligatorios (documento o nombre)\"}");
+                return;
+            }
+
             // Conectar con LectorDAO
             LectorDAO dao = new LectorDAO();
 
             if (dao.existeLector(lector.getDocumento())) {
-                response.setStatus(HttpServletResponse.SC_CONFLICT); // 409
+                response.setStatus(HttpServletResponse.SC_CONFLICT); // Código 409
                 out.print("{\"estado\":\"error\",\"mensaje\":\"El lector ya existe en la base de datos\"}");
                 return;
             }
@@ -63,15 +72,15 @@ public class ApiRegistroServlet extends HttpServlet {
             boolean registrado = dao.registrarLector(lector);
 
             if (registrado) {
-                response.setStatus(HttpServletResponse.SC_CREATED); // 201
+                response.setStatus(HttpServletResponse.SC_CREATED); // Código 201
                 out.print("{\"estado\":\"exito\",\"mensaje\":\"Lector registrado correctamente\"}");
             } else {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST); // 400
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST); // Código 400
                 out.print("{\"estado\":\"error\",\"mensaje\":\"No se pudo registrar el lector\"}");
             }
 
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR); // 500
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR); // Código 500
             out.print("{\"estado\":\"error\",\"mensaje\":\"Error en el servidor: " + e.getMessage() + "\"}");
         } finally {
             out.flush();
